@@ -63,11 +63,13 @@ def invoke_dataset_from_config(config: Config, required: Union[str, list, tuple]
 
         dataset = config.dataset
         required = to_list(required)
+        
+        dataset_args = ["train", "val", "test"]
 
         try:
             reader_class = import_object(dataset["reader"])
             reader_args = inspect.signature(reader_class).parameters.keys()
-            datasets = [key for key in dataset.keys() if key not in reader_args and key != "reader"]
+            datasets = [key for key in dataset.keys() if key in dataset_args and key != "reader"] # changed from not in reader_args to in dataset_args
             global_args = [key for key in dataset.keys() if key not in datasets and key != "reader"]
 
             # check for required datasets before loading anything
@@ -95,8 +97,9 @@ def invoke_dataset_from_config(config: Config, required: Union[str, list, tuple]
                         dataset[dset][key] = import_object(value[len("import::"):])
                     if key == "transforms":
                         dataset[dset][key] = Compose([invoke_functional_with_params(t) for t in value])
-                print("Loading dataset '{}'...".format(dset))
-                readers[dset] = reader_class(**{**global_pars, **dataset[dset]})
+                    print("Loading dataset '{}'...".format(dset))
+                    readers[dset] = reader_class(**{**global_pars, **dataset[dset]})
+        
         except (AttributeError, TypeError) as e:
             print("Unable to import '{}'".format(e))
             raise e
