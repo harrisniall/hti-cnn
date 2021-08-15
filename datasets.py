@@ -189,6 +189,61 @@ class Cellpainting(TorchDataset):
         return result
 
 
+class CellpaintingPreTransformed(Cellpainting):
+    """
+    Stripped back version of CellPainting Dataset object, leveraging the pre-processed and
+    pre-saved torch Tensor files instead of the original npz files.
+    """
+
+    def __init__(self, **kwargs):
+        # We deliberately preprocessed to avoid doing costly transforms, so we'll just log
+        # this message to remind future me ..
+        print(
+            "Warning: This Dataset class leverages PRE-TRANSFORMED data only. We set the transforms attribute to be None")
+        self.transforms = None
+
+        super(CellpaintingPreTransformed, self).__init__(**kwargs)
+
+    def read_sample(self, key):
+        with Timer("Read Sample", verbose=self.verbose):
+            if self.group_views:
+                X = self.load_view_group(key)
+            else:
+                filepath = path.join(self.data_directory, "{}.pt".format(key))
+                try:
+                    X = self.load_view_tensor(filepath=filepath)
+                except Exception:
+                    print("ERROR: Missing sample '{}'".format(key))
+                    return dict(input=None, ID=key)
+
+            # get label
+            if self.label_dict is not None:
+                label_idx = self.label_dict[key]
+                y = self.label_matrix[label_idx].toarray()[0].astype(np.float32)
+
+                ## Commenting out _any_ potential slowdowns in the data loading
+                # if self.sample_to_smiles is not None and key in self.sample_to_smiles:
+                #     y = np.concatenate([y, self.auxiliary_data[self.sample_to_smiles[key], :]])
+
+                return dict(input=X, target=y, ID=key)
+
+            else:
+                return dict(input=X, ID=key)
+
+    def get_sample_keys(self):
+        return self.sample_keys.copy()
+
+    def load_view_tensor(self, filepath):
+        image = torch.load(filepath)
+        return image
+
+    def load_view(self, filepath):
+        raise NotImplementedError
+
+    def load_view_group(self, groupkey):
+        raise NotImplementedError
+
+
 class CellpaintingSingleCell(TorchDataset):
     def __init__(self, sample_index_file: str, data_directory_path: str, label_matrix_file: str = None,
                  label_row_index_file: str = None, label_col_index_file: str = None,
