@@ -1,6 +1,6 @@
 {
-  "name": "gapnet",
-  "comment": "GapNet with dilations in the bottleneck layers. Data loading layer modified",
+  "name": "gapnet-se-0_05-m6",
+  "comment": "GapNet with dilations in the bottleneck layers. Data loading layer modified. Config for Snapshot Ensemble",
   "workspace": "/home/jovyan/nfs/home/niall/data",
   "dataset": {
     "reader": "datasets.CellpaintingPreTransformed",
@@ -43,10 +43,16 @@
     "dropout": 0
   },
   "training": {
-    "epochs": 100,
+    "epochs": 120,
     "batchsize": 64
   },
-  "dataset_to_eval": "val",
+  "ensemble": {
+    "ensemble_type": "snapshot_ensemble",
+    "ensemble_size": 6,
+    "cycle_length": 20,
+    "initial_lr": 0.05
+  },
+  "dataset_to_eval": "test",
   "evaluation": {
     "class_statistics": true
   }
