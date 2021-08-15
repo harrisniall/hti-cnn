@@ -86,7 +86,7 @@ class Workspace(object):
             print("PermissionError when trying to change permissions of workspace to 775")
         
         # compress and copy current script and dependencies to results dir
-        self.__zip_source__(run_dir)
+        # self.__zip_source__(run_dir) # NH commented out for now
         
         # return paths
         return [run_dir, timestamp, results_dir, statistics_dir, checkpoints_dir, kill_file]
