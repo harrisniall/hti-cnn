@@ -2,6 +2,8 @@ import argparse
 import os
 import shutil
 
+import numpy as np
+
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
@@ -40,7 +42,7 @@ class PyLL(object):
             config.override(k, v)
             # Init Dataset
         datasets = invoke_dataset_from_config(config)
-        # Init Model        
+        # Init Model
         model: TorchModel = invoke_model_from_config(config, datasets[list(datasets.keys())[0]])
         loss = model.loss
         model = self.cuda(torch.nn.DataParallel(model))
@@ -109,6 +111,11 @@ class PyLL(object):
 
         cudnn.benchmark = True
 
+        if config.has_value("ensemble"):
+            self.ensemble_properties = config.get_value("ensemble")
+        else:
+            self.ensemble_properties = None
+
         # set properties
         self.model = model
         self.loss = loss
@@ -141,8 +148,19 @@ class PyLL(object):
             print("Unable to train without optimizer")
             return
 
-        if self.config.has_value("lr_schedule"):
-            self.adjust_learning_rate(epoch)
+        ###
+        # Moved this block to main.py
+        ###
+        # # For snapshot ensembles ...
+        # if self.ensemble_properties:
+        #     if self.ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
+        #         # Adjust learning rate
+        #         initial_lr = self.ensemble_properties.get("initial_lr")
+        #         cycle_length = self.ensemble_properties.get("cycle_length")
+        #         lr = self.adjust_cyclic_annealing_lr(epoch, initial_lr, cycle_length)
+        #
+        # elif self.config.has_value("lr_schedule"):
+        #     self.adjust_learning_rate(epoch)
 
         # compute output
         prediction = self.model(input)
@@ -196,9 +214,31 @@ class PyLL(object):
             'performance': performance,
             'optimizer': self.optimizer.state_dict(),
         }
+        # Save after every epoch (I'll need this for Ensembles)
+        if not self.ensemble_properties or (self.ensemble_properties.get("ensemble_type") != "snapshot_ensemble"):
+            torch.save(state, os.path.join(self.workspace.checkpoint_dir, f"state_epoch_{self.epoch}"))
+
         torch.save(state, os.path.join(self.workspace.checkpoint_dir, filename))
         if is_best:
             shutil.copyfile(os.path.join(self.workspace.checkpoint_dir, filename), os.path.join(self.workspace.checkpoint_dir, model_best_filename))
+
+    def save_ensemble_checkpoint(self, performance, filename: str, ensemble_component: int):
+        if not self.enable_workspace:
+            print("Unable to save checkpoint without workspace")
+            return
+
+        state = {
+            'samples_seen': self.samples_seen,
+            'epoch': self.epoch,
+            'model': self.config.get_value("model", "unknown"),
+            'state_dict': self.model.state_dict(),
+            'performance': performance,
+            'optimizer': self.optimizer.state_dict(),
+        }
+
+        filename_ = f"{filename}.{ensemble_component}.pth.tar"
+        torch.save(state, os.path.join(self.workspace.checkpoint_dir, filename_))
+
 
     def adjust_learning_rate(self, current_epoch):
         if not self.enable_optimizer:
@@ -212,6 +252,18 @@ class PyLL(object):
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = lr
         return lr
+
+    def adjust_cyclic_annealing_lr(self, epoch, initial_lr, cycle_length):
+        """Set the cosine annealed learning rate (as used in Snapshot Ensembles), given
+        current epoch, initial learning rate and cycle length (in epochs).
+
+        NB: Implementation below assumes epoch count starts at 0 (as opposed to 1)
+        """
+        annealed_lr = 0.5 * initial_lr * (np.cos(np.pi * np.mod(epoch, cycle_length) / cycle_length) + 1)
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] = annealed_lr
+
+        return annealed_lr
 
     def cuda(self, var):
         if self.cuda_is_available:
