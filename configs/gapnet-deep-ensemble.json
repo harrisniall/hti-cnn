@@ -1,0 +1,57 @@
+{
+  "name": "gapnet-ensemble-eval",
+  "comment": "GapNet with dilations in the bottleneck layers. Data loading layer modified. Config for individual nets within a deep ensemble",
+  "workspace": "/home/jovyan/nfs/home/niall/data",
+  "dataset": {
+    "reader": "datasets.CellpaintingPreTransformed",
+    "group_views": false,
+    "label_matrix_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/label-matrix.mtx",
+    "label_row_index_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/labels-compound-index.csv",
+    "label_col_index_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/labels-assay-index.csv",
+    "data_directory_path": "/home/jovyan/nfs/home/niall/data/cellpainting_torch_preprocessed",
+    "train": {
+      "sample_index_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/datasplit1-train.csv"
+    },
+    "val": {
+      "sample_index_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/datasplit1-val.csv"
+    },
+    "test": {
+      "sample_index_file": "/home/jovyan/nfs/home/niall/data/cellpainting_splits/datasplit1-test.csv"
+    },
+    "transforms": [
+      "torchvision.transforms.ToTensor()",
+      "pyll.transforms.NormalizeByImage()"
+    ]
+  },
+  "optimizer": "import::torch.optim.SGD",
+  "optimizer_params": {
+    "lr": 1e-2,
+    "momentum": 0.9,
+    "weight_decay": 1e-4
+  },
+  "lr_schedule_disabled": {
+    "decay_epoch": 20,
+    "decay_rate": 0.1
+  },
+  "clip_grad_norm": {
+    "max_norm": 5,
+    "norm_type": 2
+  },
+  "model": "models.GAPNet",
+  "model_params": {
+    "fc_units": 1024,
+    "dropout": 0
+  },
+  "training": {
+    "epochs": 25,
+    "batchsize": 64
+  },
+  "dataset_to_eval": "val",
+  "evaluation": {
+    "class_statistics": true
+  },
+  "ensemble": {
+    "ensemble_type": "deep_ensemble",
+    "ensemble_size": 5
+  }
+}
