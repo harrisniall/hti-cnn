@@ -22,6 +22,7 @@ def main():
     session = PyLL()
     datasets = session.datasets
     model = session.model
+    ensemble_properties = session.ensemble_properties
     workspace = session.workspace
     summaries = session.summaries
     config = session.config
@@ -36,13 +37,15 @@ def main():
     # data loader
     loader_train = torch.utils.data.DataLoader(datasets["train"],
                                                batch_size=config.training.batchsize, shuffle=True,
-                                               num_workers=config.workers, pin_memory=True, drop_last=False)
+                                               num_workers=config.workers, pin_memory=True,
+                                               persistent_workers=True, drop_last=False)
 
     eval_val = None
     if "val" in datasets:
         loader_val = torch.utils.data.DataLoader(datasets["val"],
                                                  batch_size=batchsize_eval, shuffle=False,
-                                                 num_workers=config.workers, pin_memory=False, drop_last=False)
+                                                 num_workers=config.workers, pin_memory=False,
+                                                 persistent_workers=True, drop_last=False)
         eval_val = partial(validate, loader=loader_val, split_name="val", model=model, config=config, summary=summaries["val"], workspace=workspace)
     
     if config.evaluate == "val":
@@ -55,9 +58,24 @@ def main():
     
     # Training Loop
     try:
-        for epoch in range(start_epoch, config.training.epochs):
+        if ensemble_properties and ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
+            ensemble_size = ensemble_properties.get("ensemble_size")
+            cycle_length = ensemble_properties.get("cycle_length")
+            total_epochs = ensemble_size * cycle_length
+            print(
+                f'Running Snapshot Ensemble for {ensemble_size} iterations '
+                f'of {cycle_length} cycles (Total: {total_epochs})'
+            )
+            # Used for tracking Snapshot Ensembles to determine which component NN we are training
+            m = int(start_epoch/cycle_length)
+            print(f"Training Ensemble Member: {m}")
+
+        else:
+            total_epochs = config.training.epochs
+
+        for epoch in range(start_epoch, total_epochs):
             # train for one epoch
-            train(session, loader_train, epoch, summaries["train"])
+            train(session, loader_train, epoch, summaries["train"], ensemble_properties)
 
             if eval_val is not None:
                 # evaluate on validation set
@@ -67,6 +85,21 @@ def main():
                 is_best = performance > best_performance
                 best_performance = max(performance, best_performance)
                 session.save_checkpoint(performance, is_best)
+
+            # If we're running an ensemble model, we need to save our component ensembles
+            # at specific checkpoints along the way
+            if ensemble_properties:
+                if ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
+                    cycle_length = ensemble_properties.get("cycle_length")
+                    ensemble_size = ensemble_properties.get("ensemble_size")
+                    checkpoints = [cycle_length * cp for cp in range(1, ensemble_size + 1)]
+
+                    if (epoch + 1) in checkpoints:
+                        # Save the m-th ensemble component and increment m
+                        print(f"Saving Ensemble: {m} (epochs {epoch + 1})")
+                        session.save_ensemble_checkpoint(performance, "snapshot_ensemble", m)
+                        m += 1
+
     finally:
         print("Saving current state...")
         session.save_checkpoint(filename="user_abort.pth.tar", performance=-1, is_best=False)
@@ -78,12 +111,25 @@ def main():
         print("Done")
 
 
-def train(session: PyLL, loader, epoch, summary: SummaryWriter):
+def train(session: PyLL, loader, epoch, summary: SummaryWriter, ensemble_properties=None):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
     accuracies = AverageMeter()
     n_tasks = loader.dataset.num_classes
+
+    # For snapshot ensembles ...
+    if ensemble_properties:
+        if ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
+            # Adjust learning rate
+            initial_lr = ensemble_properties.get("initial_lr")
+            cycle_length = ensemble_properties.get("cycle_length")
+            lr = session.adjust_cyclic_annealing_lr(epoch, initial_lr, cycle_length)
+
+            print(f"Epoch: {epoch}, Cycle length: {cycle_length}, Annealed Learning Rate: {lr:.3f}")
+
+    elif session.config.has_value("lr_schedule"):
+        session.adjust_learning_rate(epoch)
 
     # switch to train mode
     session.model.train()
@@ -94,7 +140,7 @@ def train(session: PyLL, loader, epoch, summary: SummaryWriter):
         data_time.update(time.time() - end)
         input = batch["input"]
         target = batch["target"]
-        target = target.cuda(async=True)
+        target = target.cuda(non_blocking=True)
 
         loss, output = session.train_step(input, target, epoch)
 
@@ -123,15 +169,17 @@ def train(session: PyLL, loader, epoch, summary: SummaryWriter):
         summary.add_scalar("Loss", losses.val, samples_seen)
         summary.add_scalar("Accuracy", accuracies.val, samples_seen)
         summary.add_scalar("Learning_Rate", session.optimizer.param_groups[0]['lr'], samples_seen)
+        summary.add_scalar("Epoch", epoch, samples_seen)
         
         if i % session.config.print_freq == 0:
             print('Epoch: [{0}][{1}/{2}]\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Data {data_time.val:.3f} ({data_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Accuracy {acc.val:.3f} ({acc.avg:.3f})'.format(
+                  'Accuracy {acc.val:.3f} ({acc.avg:.3f})\t'
+                  'Learning Rate {lr:.3f}'.format(
                 epoch, i, len(loader), batch_time=batch_time,
-                data_time=data_time, loss=losses, acc=accuracies))
+                data_time=data_time, loss=losses, acc=accuracies, lr=lr))
 
 def validate(loader, split_name, model: TorchModel, config, samples_seen, summary: SummaryWriter, workspace: Workspace):
     batch_time = AverageMeter()
@@ -156,7 +204,7 @@ def validate(loader, split_name, model: TorchModel, config, samples_seen, summar
             input = batch["input"]
             target = batch["target"]
             sample_keys.extend(batch["ID"])
-            target = target.cuda(async=True)
+            target = target.cuda(non_blocking=True)
 
             # compute output
             output = model(input)
