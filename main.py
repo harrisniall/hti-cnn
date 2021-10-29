@@ -58,17 +58,18 @@ def main():
     
     # Training Loop
     try:
-        if ensemble_properties and ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
-            ensemble_size = ensemble_properties.get("ensemble_size")
-            cycle_length = ensemble_properties.get("cycle_length")
-            total_epochs = ensemble_size * cycle_length
-            print(
-                f'Running Snapshot Ensemble for {ensemble_size} iterations '
-                f'of {cycle_length} cycles (Total: {total_epochs})'
-            )
-            # Used for tracking Snapshot Ensembles to determine which component NN we are training
-            m = int(start_epoch/cycle_length)
-            print(f"Training Ensemble Member: {m}")
+        if ensemble_properties:
+            if ensemble_properties.get("ensemble_type") in ["deep_ensemble", "snapshot_ensemble"]:
+                ensemble_size = ensemble_properties.get("ensemble_size")
+                cycle_length = ensemble_properties.get("cycle_length")
+                total_epochs = ensemble_size * cycle_length
+                print(
+                    f'Running Snapshot Ensemble for {ensemble_size} iterations '
+                    f'of {cycle_length} cycles (Total: {total_epochs})'
+                )
+                # Used for tracking Ensembles to determine which component NN we are training
+                m = int(start_epoch/cycle_length)
+                print(f"Training Ensemble Member: {m}")
 
         else:
             total_epochs = config.training.epochs
@@ -89,7 +90,7 @@ def main():
             # If we're running an ensemble model, we need to save our component ensembles
             # at specific checkpoints along the way
             if ensemble_properties:
-                if ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
+                if ensemble_properties.get("ensemble_type") in ["deep_ensemble", "snapshot_ensemble"]:
                     cycle_length = ensemble_properties.get("cycle_length")
                     ensemble_size = ensemble_properties.get("ensemble_size")
                     checkpoints = [cycle_length * cp for cp in range(1, ensemble_size + 1)]
@@ -120,13 +121,16 @@ def train(session: PyLL, loader, epoch, summary: SummaryWriter, ensemble_propert
 
     # For snapshot ensembles ...
     if ensemble_properties:
+        cycle_length = ensemble_properties.get("cycle_length")
         if ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
             # Adjust learning rate
             initial_lr = ensemble_properties.get("initial_lr")
-            cycle_length = ensemble_properties.get("cycle_length")
             lr = session.adjust_cyclic_annealing_lr(epoch, initial_lr, cycle_length)
-
             print(f"Epoch: {epoch}, Cycle length: {cycle_length}, Annealed Learning Rate: {lr:.3f}")
+
+        elif ensemble_properties.get("ensemble_type") == "deep_ensemble":
+            lr = session.config.optimizer_params.get("lr")
+            print(f"Epoch: {epoch}, Cycle length: {cycle_length}")
 
     elif session.config.has_value("lr_schedule"):
         session.adjust_learning_rate(epoch)
