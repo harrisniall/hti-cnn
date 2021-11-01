@@ -54,7 +54,7 @@ def main():
     # initial evaluation
     if start_epoch == 0:
         if eval_val is not None:
-            eval_val(samples_seen=0)
+            eval_val(model=model, samples_seen=0)
     
     # Training Loop
     try:
