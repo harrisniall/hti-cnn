@@ -105,6 +105,7 @@ def main():
                         if ensemble_properties.get("ensemble_type") in ["deep_ensemble"]:
                             print(f"Re-initialising model weights for next cycle")
                             session.re_initialise_model(config, datasets)
+                            model = session.model
 
     finally:
         if (epoch + 1) != total_epochs:
