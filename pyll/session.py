@@ -247,6 +247,11 @@ class PyLL(object):
         self.model = model
         self.loss = loss
 
+        # Optimizer
+        if self.enable_optimizer:
+            self.optimizer = config.get_value("optimizer")(params=model.parameters(),
+                                                           **config.get_value("optimizer_params"))
+
     def adjust_cyclic_annealing_lr(self, epoch, initial_lr, cycle_length):
         """Set the cosine annealed learning rate (as used in Snapshot Ensembles), given
         current epoch, initial learning rate and cycle length (in epochs).
