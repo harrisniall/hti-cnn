@@ -43,8 +43,7 @@ class PyLL(object):
         # Init Dataset
         datasets = invoke_dataset_from_config(config)
         # Init Model
-        model = self._initialise_model(config, datasets)
-        loss = model.loss
+        model, loss = self._initialise_model(config, datasets)
         print("Trainable Parameters: {:,}".format(sum(p.numel() for p in model.parameters() if p.requires_grad)))
 
         # Optimizer
@@ -237,15 +236,16 @@ class PyLL(object):
 
     def _initialise_model(self, config, datasets):
         model: TorchModel = invoke_model_from_config(config, datasets[list(datasets.keys())[0]])
+        loss = model.loss
         model = self.cuda(torch.nn.DataParallel(model))
-        return model
+        return model, loss
 
     def re_initialise_model(self, config, datasets):
         """Re-initialise the model (used for Ensembles in which we train a new model each cycle)
         """
-        model = self._initialise_model(config, datasets)
+        model, loss = self._initialise_model(config, datasets)
         self.model = model
-        self.loss = model.loss
+        self.loss = loss
 
     def adjust_cyclic_annealing_lr(self, epoch, initial_lr, cycle_length):
         """Set the cosine annealed learning rate (as used in Snapshot Ensembles), given
