@@ -40,10 +40,10 @@ class PyLL(object):
             if isinstance(v, str) and (v.lower() == "false" or v.lower() == "true"):
                 v = (v.lower() == "true")
             config.override(k, v)
-            # Init Dataset
+        # Init Dataset
         datasets = invoke_dataset_from_config(config)
         # Init Model
-        model = self._initialise_model(config, datasets[list(datasets.keys())[0]])
+        model = self._initialise_model(config, datasets)
         loss = model.loss
         print("Trainable Parameters: {:,}".format(sum(p.numel() for p in model.parameters() if p.requires_grad)))
 
