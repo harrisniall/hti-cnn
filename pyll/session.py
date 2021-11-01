@@ -201,7 +201,7 @@ class PyLL(object):
             'optimizer': self.optimizer.state_dict(),
         }
         # Save after every epoch (I'll need this for Ensembles)
-        if not self.ensemble_properties or (self.ensemble_properties.get("ensemble_type") != "snapshot_ensemble"):
+        if self.ensemble_properties and self.ensemble_properties.get("ensemble_type") in ["deep_ensemble"]:
             torch.save(state, os.path.join(self.workspace.checkpoint_dir, f"state_epoch_{self.epoch}"))
 
         torch.save(state, os.path.join(self.workspace.checkpoint_dir, filename))
