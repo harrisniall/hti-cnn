@@ -118,6 +118,7 @@ def train(session: PyLL, loader, epoch, summary: SummaryWriter, ensemble_propert
     losses = AverageMeter()
     accuracies = AverageMeter()
     n_tasks = loader.dataset.num_classes
+    lr = session.config.optimizer_params.get("lr")
 
     # For snapshot ensembles ...
     if ensemble_properties:
@@ -129,11 +130,10 @@ def train(session: PyLL, loader, epoch, summary: SummaryWriter, ensemble_propert
             print(f"Epoch: {epoch}, Cycle length: {cycle_length}, Annealed Learning Rate: {lr:.3f}")
 
         elif ensemble_properties.get("ensemble_type") == "deep_ensemble":
-            lr = session.config.optimizer_params.get("lr")
             print(f"Epoch: {epoch}, Cycle length: {cycle_length}")
 
     elif session.config.has_value("lr_schedule"):
-        session.adjust_learning_rate(epoch)
+        lr = session.adjust_learning_rate(epoch)
 
     # switch to train mode
     session.model.train()
