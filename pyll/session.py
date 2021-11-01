@@ -148,20 +148,6 @@ class PyLL(object):
             print("Unable to train without optimizer")
             return
 
-        ###
-        # Moved this block to main.py
-        ###
-        # # For snapshot ensembles ...
-        # if self.ensemble_properties:
-        #     if self.ensemble_properties.get("ensemble_type") == "snapshot_ensemble":
-        #         # Adjust learning rate
-        #         initial_lr = self.ensemble_properties.get("initial_lr")
-        #         cycle_length = self.ensemble_properties.get("cycle_length")
-        #         lr = self.adjust_cyclic_annealing_lr(epoch, initial_lr, cycle_length)
-        #
-        # elif self.config.has_value("lr_schedule"):
-        #     self.adjust_learning_rate(epoch)
-
         # compute output
         prediction = self.model(input)
         loss = self.loss(prediction, target)

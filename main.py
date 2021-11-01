@@ -102,8 +102,9 @@ def main():
                         m += 1
 
     finally:
-        print("Saving current state...")
-        session.save_checkpoint(filename="user_abort.pth.tar", performance=-1, is_best=False)
+        if (epoch + 1) != total_epochs:
+            print("Saving current state...")
+            session.save_checkpoint(filename="user_abort.pth.tar", performance=-1, is_best=False)
 
         print("Closing summary writers...")
         for name, summary in summaries.items():
