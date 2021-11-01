@@ -46,7 +46,7 @@ def main():
                                                  batch_size=batchsize_eval, shuffle=False,
                                                  num_workers=config.workers, pin_memory=False,
                                                  persistent_workers=True, drop_last=False)
-        eval_val = partial(validate, loader=loader_val, split_name="val", model=model, config=config, summary=summaries["val"], workspace=workspace)
+        eval_val = partial(validate, loader=loader_val, split_name="val", config=config, summary=summaries["val"], workspace=workspace)
     
     if config.evaluate == "val":
         validate(loader_val, "val", model, 0, None, None)
@@ -80,7 +80,7 @@ def main():
 
             if eval_val is not None:
                 # evaluate on validation set
-                performance = eval_val(samples_seen=(epoch + 1) * len(loader_train.dataset))
+                performance = eval_val(model=session.model, samples_seen=(epoch + 1) * len(loader_train.dataset))
 
                 # remember best prec@1 and save checkpoint
                 is_best = performance > best_performance
@@ -105,7 +105,6 @@ def main():
                         if ensemble_properties.get("ensemble_type") in ["deep_ensemble"]:
                             print(f"Re-initialising model weights for next cycle")
                             session.re_initialise_model(config, datasets)
-                            model = session.model
 
     finally:
         if (epoch + 1) != total_epochs:
