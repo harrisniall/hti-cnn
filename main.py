@@ -101,6 +101,11 @@ def main():
                         session.save_ensemble_checkpoint(performance, "snapshot_ensemble", m)
                         m += 1
 
+                        # For Deep Ensembles, we re-initialise the model (and weights for each ensemble member)
+                        if ensemble_properties.get("ensemble_type") in ["deep_ensemble"]:
+                            print(f"Re-initialising model weights for next cycle")
+                            session.re_initialise_model(config, datasets)
+
     finally:
         if (epoch + 1) != total_epochs:
             print("Saving current state...")
