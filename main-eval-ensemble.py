@@ -207,7 +207,7 @@ def validate_ensemble(
     # store predictions
     if workspace is not None:
         np.savez_compressed(
-            file="{}/ensemble-evaluation-{}.npz".format(workspace.results_dir, split_name),
+            file="{}/evaluation-{}.npz".format(workspace.results_dir, split_name),
             granular_predictions=predictions,
             predictions=ensemble_predictions,
             targets=targets,
