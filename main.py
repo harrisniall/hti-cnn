@@ -98,7 +98,7 @@ def main():
                     if (epoch + 1) in checkpoints:
                         # Save the m-th ensemble component and increment m
                         print(f"Saving Ensemble: {m} (epochs {epoch + 1})")
-                        session.save_ensemble_checkpoint(performance, "snapshot_ensemble", m)
+                        session.save_ensemble_checkpoint(performance, "ensemble", m)
                         m += 1
 
                         # For Deep Ensembles, we re-initialise the model (and weights for each ensemble member)

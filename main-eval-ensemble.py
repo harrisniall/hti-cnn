@@ -38,14 +38,14 @@ def main():
         if ensemble_properties["ensemble_type"] == "snapshot_ensemble":
             ensemble_size = ensemble_size - 1 # Since we discard the first member as burn-in
             model_paths = [
-                os.path.join(workspace.checkpoint_dir, f"snapshot_ensemble.{i}.pth.tar")
+                os.path.join(workspace.checkpoint_dir, f"ensemble.{i}.pth.tar")
                 for i in range(1,ensemble_size + 1)
             ]
             for p in model_paths: print(f"Loading: {p}")
 
         elif ensemble_properties["ensemble_type"] == "deep_ensemble":
             model_paths = [
-                os.path.join(workspace.checkpoint_dir, f"deep_ensemble.{i}.pth.tar")
+                os.path.join(workspace.checkpoint_dir, f"ensemble.{i}.pth.tar")
                 for i in range(ensemble_size)
             ]
             for p in model_paths: print(f"Loading: {p}")
