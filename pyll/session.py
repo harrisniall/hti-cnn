@@ -84,11 +84,19 @@ class PyLL(object):
                 except RuntimeError:
                     # if state dict is missing values try initializing partial state
                     state = model.state_dict()
-                    state.update(checkpoint['state_dict'])
+                    checkpoint_filtered = {key : checkpoint['state_dict'][key] for key in state.keys()}
+                    state.update(checkpoint_filtered)
                     model.load_state_dict(state)
 
                 if enable_optimizer:
-                    self.optimizer.load_state_dict(checkpoint['optimizer'])
+                    try:
+                        self.optimizer.load_state_dict(checkpoint['optimizer'])
+                    except ValueError:
+                        # if state dict is missing values try initializing partial state
+                        state = self.optimizer.state_dict()
+                        checkpoint_filtered = {key : checkpoint["optimizer"]["state"][key] for key in state["param_groups"][0]["params"]}
+                        state["state"].update(checkpoint_filtered)
+                        self.optimizer.load_state_dict(state)
                 print("=> loaded checkpoint '{}' (epoch {})".format(args.checkpoint, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(args.checkpoint))

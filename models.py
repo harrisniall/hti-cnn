@@ -212,6 +212,17 @@ class GAPNet(TorchModel):
         loss = bce.sum() / (mask.sum() + eps)
         return loss
 
+class GAPNetFeaturizer(GAPNet):
+    def __init__(self, fc_units=2048, dropout=0.5, num_classes=209, input_shape=None):
+        super(GAPNetFeaturizer, self).__init__(fc_units, dropout, num_classes, input_shape)
+        gap_shape = 32 + 64 + 128 + 256
+        self.classifier = nn.Sequential(
+            nn.Linear(gap_shape, fc_units),
+            nn.SELU(inplace=True),
+            nn.AlphaDropout(p=dropout),
+            nn.Linear(fc_units, fc_units),
+            nn.SELU(inplace=True),
+        )
 
 class MILnet(TorchModel):
     def __init__(self, model_params=None, num_classes=478, input_shape=None):
